@@ -16,17 +16,18 @@ def _load_prompt() -> str:
 
 class ValidationAgent:
     def __init__(self, queue: GeminiRequestQueue):
-        self._client = genai.Client(api_key=settings.gemini_api_key)
         self._model = settings.gemini_model
         self._prompt = _load_prompt()
         self._queue = queue
         print("[VALIDATION] Initialised")
 
     def validate(
-        self, user_request: str, tool_call: dict, mcp_response: str
+        self, user_request: str, tool_call: dict, mcp_response: str,
+        send_agent_output=None,
     ) -> dict:
         print(f"[VALIDATION] validate() - request:{user_request[:80]}... tool:{tool_call.get('tool')}")
         print(f"[VALIDATION] MCP response length: {len(mcp_response)} chars")
+        client = genai.Client(api_key=settings.gemini_api_key)
         prompt = (
             f"## Original user request\n{user_request}\n\n"
             f"## Tool call made\n{json.dumps(tool_call, indent=2)}\n\n"
@@ -42,7 +43,7 @@ class ValidationAgent:
 
         print("[VALIDATION] Calling Gemini API (via queue)...")
         response = self._queue.execute_with_retry(
-            self._client,
+            client,
             self._model,
             [types.Content(
                 role="user",

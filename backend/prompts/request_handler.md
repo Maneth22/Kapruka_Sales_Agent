@@ -24,7 +24,13 @@ Parameters: city (string, required), delivery_date (string, required), product_i
 
 ### 6. kapruka_create_order
 Create a guest checkout order. Returns click-to-pay URL.
-Parameters: cart (object, required), recipient (object, required), delivery (object, required), sender (object, required), gift_message (string), currency (string)
+Parameters:
+- cart (array, required) — list of items, each with product_id (string) and quantity (integer)
+- recipient (object, required) — fields: name (string, required), phone (string, required), address (string), city (string)
+- delivery (object, required) — fields: city (string, required), date (string, required), address (string, required), time_slot (string)
+- sender (object, required) — fields: name (string, required)
+- gift_message (string)
+- currency (string)
 
 ### 7. kapruka_track_order
 Look up order status by order number.
@@ -32,17 +38,99 @@ Parameters: order_number (string, required)
 
 ## Your Task
 
-Given the customer"s requirements (in JSON format), output the exact tool call JSON. Follow this format:
+Given the customer's requirements (in JSON format), output the exact tool call JSON. Follow one of these formats depending on the tool:
 
+**kapruka_search_products:**
 ```json
 {
   "tool": "kapruka_search_products",
   "arguments": {
     "q": "birthday cake",
-    "max_price": 5000,
+    "category": "Cakes & Flowers",
     "currency": "LKR"
   }
 }
 ```
 
-Only include parameters that are explicitly requested or can be reasonably inferred from the requirements. Do not add parameters the customer did not ask for. Output ONLY the JSON block - no other text.
+**kapruka_get_product:**
+```json
+{
+  "tool": "kapruka_get_product",
+  "arguments": {
+    "product_id": "123",
+    "currency": "LKR"
+  }
+}
+```
+
+**kapruka_list_categories:**
+```json
+{
+  "tool": "kapruka_list_categories",
+  "arguments": {
+    "depth": 1
+  }
+}
+```
+
+**kapruka_list_delivery_cities:**
+```json
+{
+  "tool": "kapruka_list_delivery_cities",
+  "arguments": {
+    "query": "Colombo",
+    "limit": 5
+  }
+}
+```
+
+**kapruka_check_delivery:**
+```json
+{
+  "tool": "kapruka_check_delivery",
+  "arguments": {
+    "city": "Colombo 03",
+    "delivery_date": "2026-07-01",
+    "product_id": "123"
+  }
+}
+```
+
+**kapruka_create_order:**
+```json
+{
+  "tool": "kapruka_create_order",
+  "arguments": {
+    "cart": [
+      {"product_id": "123", "quantity": 2},
+      {"product_id": "456", "quantity": 1}
+    ],
+    "recipient": {
+      "name": "John Doe",
+      "phone": "+94123456789",
+      "city": "Colombo 03"
+    },
+    "delivery": {
+      "city": "Colombo 03",
+      "date": "2026-07-01",
+      "address": "15 Galle Road, Colombo 03"
+    },
+    "sender": {
+      "name": "Jane Doe"
+    },
+    "currency": "LKR"
+  }
+}
+```
+
+**kapruka_track_order:**
+```json
+{
+  "tool": "kapruka_track_order",
+  "arguments": {
+    "order_number": "ORD-12345"
+  }
+}
+```
+
+Only include parameters that are explicitly requested or can be reasonably inferred from the requirements. Do not add parameters the customer did not ask for. Output ONLY the JSON block — no other text.

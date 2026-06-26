@@ -10,5 +10,6 @@ class BaseAgent(ABC):
         history: list[dict],
         mcp_client,
         send_status: Callable[[str, str], None] | None = None,
+        send_agent_output: Callable[[str, str, str], None] | None = None,
     ) -> str:
         ...

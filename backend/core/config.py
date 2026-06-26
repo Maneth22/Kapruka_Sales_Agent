@@ -19,6 +19,8 @@ class Settings:
     admin_password: str = os.getenv("ADMIN_PASSWORD", "")
     host: str = os.getenv("HOST", "0.0.0.0")
     port: int = int(os.getenv("PORT", "8000"))
+    pipeline_max_concurrency: int = int(os.getenv("PIPELINE_MAX_CONCURRENCY", "1"))
+    pipeline_interval_ms: int = int(os.getenv("PIPELINE_INTERVAL_MS", "3000"))
 
 
 settings = Settings()

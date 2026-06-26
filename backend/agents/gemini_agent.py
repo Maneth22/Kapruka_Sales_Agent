@@ -31,6 +31,7 @@ class GeminiAgent(BaseAgent):
         history: list[dict],
         mcp_client,
         send_status=None,
+        send_agent_output=None,
     ) -> str:
         print(f"\n{'='*60}")
         print(f"[ORCHESTRATOR] Received user message: {user_message[:80]}...")
@@ -40,7 +41,7 @@ class GeminiAgent(BaseAgent):
             send_status("interacting", "Understanding your request...")
 
         try:
-            return self._process(user_message, history, mcp_client, send_status)
+            return self._process(user_message, history, mcp_client, send_status, send_agent_output)
         except GeminiServerError as e:
             print(f"[ORCHESTRATOR] Gemini API error: {e.code} - {e.message[:100]}")
             if send_status:
@@ -51,11 +52,13 @@ class GeminiAgent(BaseAgent):
             )
 
     def _process(
-        self, user_message, history, mcp_client, send_status,
+        self, user_message, history, mcp_client, send_status, send_agent_output,
     ) -> str:
         print("[ORCHESTRATOR] >> Sending to InteractionAgent.chat()...")
-        chat_response = self._interaction.chat(user_message, history)
+        chat_response = self._interaction.chat(user_message, history, send_agent_output)
         print(f"[ORCHESTRATOR] << InteractionAgent response ({len(chat_response)} chars)")
+        if send_agent_output:
+            send_agent_output("Conversation Analysis", chat_response, "info")
 
         requirements = self._extract_requirements(chat_response)
         if requirements is None:
@@ -71,7 +74,7 @@ class GeminiAgent(BaseAgent):
 
             req_text = json.dumps(requirements, indent=2)
             print(f"[ORCHESTRATOR] >> Sending to RequestHandlerAgent.build_request()...")
-            tool_call = self._request_handler.build_request(req_text)
+            tool_call = self._request_handler.build_request(req_text, send_agent_output)
             if tool_call is None:
                 print("[ORCHESTRATOR] RequestHandlerAgent returned None")
                 return self._interaction.explain_limitations(
@@ -80,7 +83,10 @@ class GeminiAgent(BaseAgent):
 
             tool_name = tool_call.get("tool")
             tool_args = tool_call.get("arguments", {})
+            tool_call_str = json.dumps(tool_call, indent=2)
             print(f"[ORCHESTRATOR] Tool call: {tool_name}({json.dumps(tool_args)[:150]})")
+            if send_agent_output:
+                send_agent_output("Request Builder", tool_call_str, "success")
 
             if send_status:
                 detail = tool_name.replace("kapruka_", "").replace("_", " ")
@@ -99,15 +105,24 @@ class GeminiAgent(BaseAgent):
                 user_req_text = json.dumps(requirements, indent=2)
 
             print(f"[ORCHESTRATOR] >> Sending to ValidationAgent.validate()...")
-            verdict = self._validation.validate(user_req_text, tool_call, mcp_response)
-            print(f"[ORCHESTRATOR] << Validation verdict: satisfied={verdict.get('satisfied')}")
+            verdict = self._validation.validate(
+                user_req_text, tool_call, mcp_response, send_agent_output
+            )
+            verdict_satisfied = verdict.get("satisfied")
+            print(f"[ORCHESTRATOR] << Validation verdict: satisfied={verdict_satisfied}")
             print(f"[ORCHESTRATOR]    Feedback: {verdict.get('feedback', '')[:150]}")
+            if send_agent_output:
+                status = "success" if verdict_satisfied else ("retry" if attempt < MAX_RETRIES else "failure")
+                send_agent_output("Validation", json.dumps(verdict, indent=2), status)
 
-            if verdict.get("satisfied"):
+            if verdict_satisfied:
                 print("[ORCHESTRATOR] Validation PASSED - presenting results")
                 if send_status:
                     send_status("done", "Found matching results!")
-                return self._interaction.present_results(mcp_response, history)
+                final = self._interaction.present_results(mcp_response, history)
+                if send_agent_output:
+                    send_agent_output("Final Response", final, "success")
+                return final
 
             if attempt < MAX_RETRIES:
                 refined = verdict.get("refined_request")
@@ -121,12 +136,18 @@ class GeminiAgent(BaseAgent):
 
             fb = verdict.get("feedback", "Could not find suitable results.")
             print(f"[ORCHESTRATOR] No retry possible, explaining limitations: {fb[:150]}")
-            return self._interaction.explain_limitations(fb, history)
+            limitation = self._interaction.explain_limitations(fb, history)
+            if send_agent_output:
+                send_agent_output("Unable to Fulfill", limitation, "failure")
+            return limitation
 
         print("[ORCHESTRATOR] Max retries exhausted")
-        return self._interaction.explain_limitations(
+        limitation = self._interaction.explain_limitations(
             "Could not find suitable results after multiple attempts.", history
         )
+        if send_agent_output:
+            send_agent_output("Unable to Fulfill", limitation, "failure")
+        return limitation
 
     def _extract_requirements(self, text: str) -> dict | None:
         import re

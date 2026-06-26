@@ -3,6 +3,7 @@ import { io } from 'socket.io-client';
 
 export function useChat(token) {
   const [messages, setMessages] = useState([]);
+  const [agentOutputs, setAgentOutputs] = useState([]);
   const [isThinking, setIsThinking] = useState(false);
   const [statusDetail, setStatusDetail] = useState('');
   const [connected, setConnected] = useState(false);
@@ -40,6 +41,10 @@ export function useChat(token) {
       }
     });
 
+    socket.on('agent_output', (data) => {
+      setAgentOutputs((prev) => [...prev, data]);
+    });
+
     socketRef.current = socket;
 
     return () => { socket.disconnect(); };
@@ -49,8 +54,9 @@ export function useChat(token) {
     const socket = socketRef.current;
     if (!socket || !socket.connected) return;
     setMessages((prev) => [...prev, { role: 'user', content }]);
+    setAgentOutputs([]);
     socket.emit('message', { content });
   }, []);
 
-  return { messages, isThinking, statusDetail, connected, sendMessage };
+  return { messages, agentOutputs, isThinking, statusDetail, connected, sendMessage };
 }

@@ -19,6 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from backend.core.config import settings
+from backend.core.gemini_queue import GeminiRequestQueue
 from backend.agents.gemini_agent import GeminiAgent
 
 
@@ -86,6 +87,11 @@ async def send_status(status: str, detail: str = ""):
     print(f"\n  [STATUS] {status}: {detail}")
 
 
+def send_agent_output(label: str, content: str, status: str = "info"):
+    """Print agent output (mirrors what would be sent via WebSocket)."""
+    print(f"\n  [AGENT_OUTPUT] [{status}] {label}: {content[:100]}...")
+
+
 async def main():
     # Parse args
     args = sys.argv[1:]
@@ -110,7 +116,8 @@ async def main():
     print(f"  Gemini model: {settings.gemini_model}")
     print(f"\n  Initialising agent...")
 
-    agent = GeminiAgent()
+    gemini_queue = GeminiRequestQueue(max_concurrency=1, min_delay_ms=1000)
+    agent = GeminiAgent(gemini_queue)
     mcp_client = MockMCPClient() if use_mock else None
 
     if not use_mock:
@@ -127,6 +134,7 @@ async def main():
             history=[],
             mcp_client=mcp_client,
             send_status=send_status,
+            send_agent_output=send_agent_output,
         )
 
         print("\n" + "-" * 70)

@@ -16,14 +16,14 @@ def _load_prompt() -> str:
 
 class InteractionAgent:
     def __init__(self, queue: GeminiRequestQueue):
-        self._client = genai.Client(api_key=settings.gemini_api_key)
         self._model = settings.gemini_model
         self._prompt = _load_prompt()
         self._queue = queue
         print("[INTERACTION] Initialised")
 
-    def chat(self, user_message: str, history: list[dict]) -> str:
+    def chat(self, user_message: str, history: list[dict], send_agent_output=None, step_label="Conversation Analysis") -> str:
         print(f"[INTERACTION] chat() - history:{len(history)} msgs, user:{user_message[:60]}...")
+        client = genai.Client(api_key=settings.gemini_api_key)
         contents = []
         for msg in history:
             role = "user" if msg["role"] == "user" else "model"
@@ -44,7 +44,7 @@ class InteractionAgent:
         )
 
         print("[INTERACTION] Calling Gemini API (via queue)...")
-        response = self._queue.execute_with_retry(self._client, self._model, contents, config)
+        response = self._queue.execute_with_retry(client, self._model, contents, config)
 
         if response.candidates and response.candidates[0].content.parts:
             text = response.candidates[0].content.parts[0].text or ""

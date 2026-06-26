@@ -5,7 +5,7 @@ from backend.core.chat_store import get_history, add_message
 from backend.core.security import verify_token
 
 
-def register_socket_handlers(socketio, agent, mcp_client):
+def register_socket_handlers(socketio, pipeline_queue, mcp_client):
     @socketio.on("connect")
     def on_connect():
         token = request.args.get("token")
@@ -31,12 +31,16 @@ def register_socket_handlers(socketio, agent, mcp_client):
             print(f"[CHAT] Status [{status}]: {detail[:80]}")
             emit("status", {"status": status, "detail": detail})
 
+        def send_agent_output(label: str, content: str, status: str = "info"):
+            print(f"[CHAT] Agent output [{status}] {label}: {content[:80]}...")
+            emit("agent_output", {"label": label, "content": content, "status": status})
+
         send_status("thinking", "Processing your request...")
 
         history = get_history(user_id)
         print(f"[CHAT] History has {len(history)} entries")
-        response_text = agent.process_message(
-            user_content, history, mcp_client, send_status
+        response_text = pipeline_queue.process_message(
+            user_content, history, mcp_client, send_status, send_agent_output
         )
 
         add_message(user_id, "assistant", response_text)

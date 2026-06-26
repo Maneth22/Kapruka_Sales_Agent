@@ -16,14 +16,14 @@ def _load_prompt() -> str:
 
 class RequestHandlerAgent:
     def __init__(self, queue: GeminiRequestQueue):
-        self._client = genai.Client(api_key=settings.gemini_api_key)
         self._model = settings.gemini_model
         self._prompt = _load_prompt()
         self._queue = queue
         print("[REQUEST_HANDLER] Initialised")
 
-    def build_request(self, requirements: str) -> dict | None:
+    def build_request(self, requirements: str, send_agent_output=None) -> dict | None:
         print(f"[REQUEST_HANDLER] build_request() - input:{requirements[:150]}...")
+        client = genai.Client(api_key=settings.gemini_api_key)
         config = types.GenerateContentConfig(
             system_instruction=types.Content(
                 role="user",
@@ -33,7 +33,7 @@ class RequestHandlerAgent:
 
         print("[REQUEST_HANDLER] Calling Gemini API (via queue)...")
         response = self._queue.execute_with_retry(
-            self._client,
+            client,
             self._model,
             [types.Content(
                 role="user",
