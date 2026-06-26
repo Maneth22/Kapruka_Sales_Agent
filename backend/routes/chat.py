@@ -35,12 +35,16 @@ def register_socket_handlers(socketio, pipeline_queue, mcp_client):
             print(f"[CHAT] Agent output [{status}] {label}: {content[:80]}...")
             emit("agent_output", {"label": label, "content": content, "status": status})
 
+        def send_products(products_data: list[dict]):
+            print(f"[CHAT] Emitting {len(products_data)} products with images")
+            emit("products", {"products": products_data})
+
         send_status("thinking", "Processing your request...")
 
         history = get_history(user_id)
         print(f"[CHAT] History has {len(history)} entries")
         response_text = pipeline_queue.process_message(
-            user_content, history, mcp_client, send_status, send_agent_output
+            user_content, history, mcp_client, send_status, send_agent_output, send_products, user_id
         )
 
         add_message(user_id, "assistant", response_text)

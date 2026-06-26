@@ -575,6 +575,8 @@ class TestPipelineQueue:
             "hi", [], None,
             send_status=status,
             send_agent_output=output,
+            send_products=None,
+            user_id=None,
         )
 
 

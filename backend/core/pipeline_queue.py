@@ -11,7 +11,7 @@ class PipelineQueue:
         self._lock = threading.Lock()
         print(f"[PIPELINE_Q] Initialised (concurrency={max_concurrency}, interval={pipeline_interval_ms}ms)")
 
-    def process_message(self, user_message, history, mcp_client, send_status=None, send_agent_output=None):
+    def process_message(self, user_message, history, mcp_client, send_status=None, send_agent_output=None, send_products=None, user_id=None):
         with self._semaphore:
             with self._lock:
                 elapsed = time.monotonic() - self._last_pipeline_end
@@ -24,6 +24,8 @@ class PipelineQueue:
                     user_message, history, mcp_client,
                     send_status=send_status,
                     send_agent_output=send_agent_output,
+                    send_products=send_products,
+                    user_id=user_id,
                 )
             finally:
                 with self._lock:

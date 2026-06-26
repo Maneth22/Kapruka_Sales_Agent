@@ -8,6 +8,7 @@ export default defineConfig({
     proxy: {
       '/auth': { target: 'http://localhost:8000', changeOrigin: true },
       '/socket.io': { target: 'http://localhost:8000', ws: true },
+      '/static': { target: 'http://localhost:8000', changeOrigin: true },
     },
   },
 });

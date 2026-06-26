@@ -13,7 +13,7 @@ def get_tools() -> list[types.Tool]:
         types.Tool(function_declarations=[
             types.FunctionDeclaration(
                 name="kapruka_search_products",
-                description="Search the catalog by keyword with category, price range, stock, and sort filters. Pagination capped at 3 pages.",
+                description="Search the catalog by keyword with category, price range, stock, and sort filters. Pagination capped at 3 pages. returns product IDs, names, prices, and a direct URL.",
                 parameters=types.Schema(
                     type=types.Type.OBJECT,
                     properties={

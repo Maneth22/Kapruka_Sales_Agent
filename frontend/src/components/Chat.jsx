@@ -1,16 +1,17 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Container, AppShell, Group, Title, Button, Text, Loader, ScrollArea, Stack, Center } from '@mantine/core';
+import { Container, AppShell, Group, Title, Button, Text, Loader, ScrollArea, Stack, Center, SimpleGrid } from '@mantine/core';
 import { IconLogout } from '@tabler/icons-react';
 import { useChat } from '../hooks/useChat';
 import MessageBubble from './MessageBubble';
 import AgentOutputCard from './AgentOutputCard';
+import ProductCard from './ProductCard';
 import ChatInput from './ChatInput';
 
 export default function Chat() {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
-  const { messages, agentOutputs, isThinking, statusDetail, connected, sendMessage } = useChat(token);
+  const { messages, agentOutputs, isThinking, statusDetail, connected, sendMessage, productCards } = useChat(token);
   const viewport = useRef(null);
 
   useEffect(() => {
@@ -21,11 +22,32 @@ export default function Chat() {
     if (viewport.current) {
       viewport.current.scrollTo({ top: viewport.current.scrollHeight, behavior: 'smooth' });
     }
-  }, [messages, agentOutputs, isThinking]);
+  }, [messages, agentOutputs, isThinking, productCards]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     navigate('/login');
+  };
+
+  const renderMessages = () => {
+    let productIdx = 0;
+    return messages.map((msg, i) => {
+      const showProducts = msg.role === 'assistant' && productCards.length > productIdx;
+      const batch = showProducts ? productCards[productIdx] : [];
+      if (showProducts) productIdx++;
+      return (
+        <div key={i}>
+          <MessageBubble message={msg} />
+          {showProducts && (
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" mt="sm" mb="md">
+              {batch.map((product) => (
+                <ProductCard key={product.id} {...product} />
+              ))}
+            </SimpleGrid>
+          )}
+        </div>
+      );
+    });
   };
 
   return (
@@ -55,9 +77,7 @@ export default function Chat() {
                   </Text>
                 </Center>
               )}
-              {messages.map((msg, i) => (
-                <MessageBubble key={i} message={msg} />
-              ))}
+              {renderMessages()}
               {agentOutputs.length > 0 && (
                 <Stack gap={0} pl="sm" style={{ borderLeft: '2px solid var(--mantine-color-gray-3)' }}>
                   {agentOutputs.map((ao, i) => (

@@ -21,6 +21,11 @@ class Settings:
     port: int = int(os.getenv("PORT", "8000"))
     pipeline_max_concurrency: int = int(os.getenv("PIPELINE_MAX_CONCURRENCY", "1"))
     pipeline_interval_ms: int = int(os.getenv("PIPELINE_INTERVAL_MS", "3000"))
+    image_storage_dir: str = os.getenv(
+        "IMAGE_STORAGE_DIR",
+        str(_project_root / "backend" / "static" / "images"),
+    )
+    image_scrape_timeout: int = int(os.getenv("IMAGE_SCRAPE_TIMEOUT", "15"))
 
 
 settings = Settings()

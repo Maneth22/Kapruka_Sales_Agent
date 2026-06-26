@@ -7,7 +7,16 @@ from backend.agents.base import BaseAgent
 from backend.agents.interaction_agent import InteractionAgent
 from backend.agents.request_handler_agent import RequestHandlerAgent
 from backend.agents.validation_agent import ValidationAgent
+from backend.core.config import settings
 from backend.core.gemini_queue import GeminiRequestQueue
+from backend.core.product_store import (
+    add_search_results,
+    format_products_context,
+    get_latest_products,
+    clear_search_history,
+)
+from backend.mcp_client.parsers import parse_tool_response
+from backend.services.image_service import ImageService
 
 MAX_RETRIES = 2
 
@@ -17,13 +26,18 @@ def _load_system_prompt() -> str:
     return path.read_text(encoding="utf-8")
 
 
+def _parse_products_from_mcp(tool_name: str, mcp_response: str) -> list[dict]:
+    return parse_tool_response(tool_name, mcp_response)
+
+
 class GeminiAgent(BaseAgent):
-    def __init__(self, queue: GeminiRequestQueue):
+    def __init__(self, queue: GeminiRequestQueue, image_service: ImageService | None = None):
         self._system_prompt = _load_system_prompt()
         self._interaction = InteractionAgent(queue)
         self._request_handler = RequestHandlerAgent(queue)
         self._validation = ValidationAgent(queue)
-        print("[ORCHESTRATOR] Initialised with 3 sub-agents")
+        self._image_service = image_service or ImageService(settings.image_storage_dir)
+        print("[ORCHESTRATOR] Initialised with 3 sub-agents + product store")
 
     def process_message(
         self,
@@ -32,16 +46,18 @@ class GeminiAgent(BaseAgent):
         mcp_client,
         send_status=None,
         send_agent_output=None,
+        send_products=None,
+        user_id=None,
     ) -> str:
         print(f"\n{'='*60}")
         print(f"[ORCHESTRATOR] Received user message: {user_message[:80]}...")
-        print(f"[ORCHESTRATOR] History entries: {len(history)}")
+        print(f"[ORCHESTRATOR] History entries: {len(history)}, user_id: {user_id}")
 
         if send_status:
             send_status("interacting", "Understanding your request...")
 
         try:
-            return self._process(user_message, history, mcp_client, send_status, send_agent_output)
+            return self._process(user_message, history, mcp_client, send_status, send_agent_output, send_products, user_id)
         except GeminiServerError as e:
             print(f"[ORCHESTRATOR] Gemini API error: {e.code} - {e.message[:100]}")
             if send_status:
@@ -52,10 +68,12 @@ class GeminiAgent(BaseAgent):
             )
 
     def _process(
-        self, user_message, history, mcp_client, send_status, send_agent_output,
+        self, user_message, history, mcp_client, send_status, send_agent_output, send_products=None, user_id=None,
     ) -> str:
+        enriched_history = self._enrich_history_with_product_context(history, user_id)
+
         print("[ORCHESTRATOR] >> Sending to InteractionAgent.chat()...")
-        chat_response = self._interaction.chat(user_message, history, send_agent_output)
+        chat_response = self._interaction.chat(user_message, enriched_history, send_agent_output)
         print(f"[ORCHESTRATOR] << InteractionAgent response ({len(chat_response)} chars)")
         if send_agent_output:
             send_agent_output("Conversation Analysis", chat_response, "info")
@@ -78,7 +96,7 @@ class GeminiAgent(BaseAgent):
             if tool_call is None:
                 print("[ORCHESTRATOR] RequestHandlerAgent returned None")
                 return self._interaction.explain_limitations(
-                    "Could not build a valid request from the requirements.", history
+                    "Could not build a valid request from the requirements.", enriched_history
                 )
 
             tool_name = tool_call.get("tool")
@@ -96,6 +114,12 @@ class GeminiAgent(BaseAgent):
             mcp_response = mcp_client.call_tool(tool_name, tool_args)
             print(f"[ORCHESTRATOR] << MCP response ({len(mcp_response)} chars)")
             print(f"[ORCHESTRATOR] MCP response preview: {mcp_response[:200]}")
+
+            if tool_name in ("kapruka_search_products", "kapruka_get_product") and user_id:
+                products = _parse_products_from_mcp(tool_name, mcp_response)
+                if products:
+                    print(f"[ORCHESTRATOR] Storing {len(products)} products in product_store for user {user_id}")
+                    add_search_results(user_id, tool_call, mcp_response, products)
 
             if send_status:
                 send_status("validating", f"Checking results (attempt {attempt}/{MAX_RETRIES})...")
@@ -117,9 +141,27 @@ class GeminiAgent(BaseAgent):
 
             if verdict_satisfied:
                 print("[ORCHESTRATOR] Validation PASSED - presenting results")
+
+                if send_products and tool_name in ("kapruka_search_products", "kapruka_get_product"):
+                    print("[ORCHESTRATOR] Processing product images...")
+                    try:
+                        products_data = self._image_service.process_search_response(tool_name, mcp_response)
+                        if products_data:
+                            print(f"[ORCHESTRATOR] Emitting {len(products_data)} products with images")
+                            send_products(products_data)
+
+                            if user_id:
+                                stored = get_latest_products(user_id)
+                                if stored:
+                                    add_search_results(user_id, tool_call, mcp_response, stored, image_results=products_data)
+                        else:
+                            print("[ORCHESTRATOR] No products with images retrieved")
+                    except Exception as e:
+                        print(f"[ORCHESTRATOR] Image processing error: {e}")
+
                 if send_status:
                     send_status("done", "Found matching results!")
-                final = self._interaction.present_results(mcp_response, history)
+                final = self._interaction.present_results(mcp_response, enriched_history)
                 if send_agent_output:
                     send_agent_output("Final Response", final, "success")
                 return final
@@ -136,18 +178,38 @@ class GeminiAgent(BaseAgent):
 
             fb = verdict.get("feedback", "Could not find suitable results.")
             print(f"[ORCHESTRATOR] No retry possible, explaining limitations: {fb[:150]}")
-            limitation = self._interaction.explain_limitations(fb, history)
+            limitation = self._interaction.explain_limitations(fb, enriched_history)
             if send_agent_output:
                 send_agent_output("Unable to Fulfill", limitation, "failure")
             return limitation
 
         print("[ORCHESTRATOR] Max retries exhausted")
         limitation = self._interaction.explain_limitations(
-            "Could not find suitable results after multiple attempts.", history
+            "Could not find suitable results after multiple attempts.", enriched_history
         )
         if send_agent_output:
             send_agent_output("Unable to Fulfill", limitation, "failure")
         return limitation
+
+    def _enrich_history_with_product_context(self, history, user_id):
+        if not user_id:
+            return history
+        product_context = format_products_context(user_id)
+        if not product_context:
+            return history
+
+        enriched = list(history)
+        enriched.append({
+            "role": "system",
+            "content": (
+                "The following products were previously shown to the customer in this session.\n"
+                "If the customer refers to a product they saw earlier (e.g., 'that cake', 'the first one', 'the chocolate one'), "
+                "use this information to identify which product they mean.\n\n"
+                f"{product_context}"
+            ),
+        })
+        print(f"[ORCHESTRATOR] Injected product context ({len(product_context)} chars) into history")
+        return enriched
 
     def _extract_requirements(self, text: str) -> dict | None:
         import re
