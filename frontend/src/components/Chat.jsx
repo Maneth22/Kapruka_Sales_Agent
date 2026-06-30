@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Container, AppShell, Group, Title, Button, Text, Loader, ScrollArea, Stack, Center, SimpleGrid } from '@mantine/core';
-import { IconLogout } from '@tabler/icons-react';
+import { Container, AppShell, Group, Button, Text, Loader, ScrollArea, Stack, Center, SimpleGrid, Popover, ActionIcon } from '@mantine/core';
+import { IconLogout, IconInfoCircle } from '@tabler/icons-react';
 import { useChat } from '../hooks/useChat';
 import MessageBubble from './MessageBubble';
 import ProductCard from './ProductCard';
@@ -12,6 +12,7 @@ export default function Chat() {
   const token = localStorage.getItem('token');
   const { messages, agentOutputs, isThinking, statusDetail, connected, sendMessage } = useChat(token);
   const viewport = useRef(null);
+  const [infoOpened, setInfoOpened] = useState(false);
 
   useEffect(() => {
     if (!token) navigate('/login');
@@ -30,17 +31,31 @@ export default function Chat() {
 
   return (
     <AppShell header={{ height: 60 }} padding={0}>
-      <AppShell.Header>
+      <AppShell.Header style={{ backgroundColor: '#432a72', borderBottom: 'none' }}>
         <Group h="100%" px="md" justify="space-between">
+          <Group gap="xs">
+            <img src="/kapruka.jpg" alt="Kapruka" height={32} style={{ borderRadius: 4 }} />
+            <Text size="sm" fw={600} c="white">Sales Agent</Text>
+          </Group>
           <Group>
-            <Title order={4}>Kapruka Agent</Title>
-            <Text size="xs" c={connected ? 'green' : 'red'}>
+            <Text size="xs" c={connected ? '#4ade80' : '#f87171'}>
               {connected ? '\u25cf Connected' : '\u25cb Disconnected'}
             </Text>
+            <Popover opened={infoOpened} onChange={setInfoOpened} width={220} position="bottom-end" shadow="md">
+              <Popover.Target>
+                <ActionIcon variant="subtle" color="white" size="sm" onClick={() => setInfoOpened((o) => !o)}>
+                  <IconInfoCircle size={18} />
+                </ActionIcon>
+              </Popover.Target>
+              <Popover.Dropdown>
+                <Text size="xs" fw={600}>Application No: 3V8UW</Text>
+                <Text size="xs" c="dimmed" mt={4}>Developed by: Sanjula Subhawickrama</Text>
+              </Popover.Dropdown>
+            </Popover>
+            <Button variant="subtle" color="white" onClick={handleLogout} leftSection={<IconLogout size={16} />}>
+              Logout
+            </Button>
           </Group>
-          <Button variant="subtle" color="gray" onClick={handleLogout} leftSection={<IconLogout size={16} />}>
-            Logout
-          </Button>
         </Group>
       </AppShell.Header>
 

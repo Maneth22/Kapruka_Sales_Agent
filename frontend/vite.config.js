@@ -11,4 +11,13 @@ export default defineConfig({
       '/static': { target: 'http://localhost:8000', changeOrigin: true },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          markdown: ['react-markdown', 'remark-gfm'],
+        },
+      },
+    },
+  },
 });

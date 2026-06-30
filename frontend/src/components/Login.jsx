@@ -28,9 +28,10 @@ export default function Login() {
   };
 
   return (
-    <Container size="xs" py="xl" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center' }}>
-      <Paper shadow="md" p="xl" radius="md" style={{ width: '100%' }}>
+    <Container size="xs" py="xl" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', backgroundColor: '#f3eff9' }}>
+      <Paper shadow="md" p="xl" radius="md" style={{ width: '100%', border: '1px solid #432a72' }}>
         <Stack align="center" mb="lg">
+          <img src="/kapruka.jpg" alt="Kapruka" height={56} style={{ borderRadius: 8 }} />
           <Title order={2}>{isRegister ? 'Create Account' : 'Sign In'}</Title>
           <Text c="dimmed" size="sm">Kapruka Sales Agent</Text>
         </Stack>
@@ -52,7 +53,8 @@ export default function Login() {
               required
             />
             {error && <Alert color="red" variant="light">{error}</Alert>}
-            <Button type="submit" fullWidth loading={loading}>
+            <Button type="submit" fullWidth loading={loading}
+              style={{ backgroundColor: '#f2d40a', color: '#000', border: '2px solid #000' }}>
               {isRegister ? 'Register' : 'Sign In'}
             </Button>
           </Stack>

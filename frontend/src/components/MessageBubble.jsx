@@ -1,4 +1,6 @@
-﻿import { Container, Paper, Text } from '@mantine/core';
+﻿import { Anchor, Paper, Text } from '@mantine/core';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 function stripJsonBlocks(text) {
   return text.replace(/```json[\s\S]*?```/g, '').trim();
@@ -20,13 +22,42 @@ export default function MessageBubble({ message }) {
         radius="lg"
         style={{
           maxWidth: '80%',
-          backgroundColor: isUser ? 'var(--mantine-color-green-6)' : 'var(--mantine-color-gray-1)',
+          backgroundColor: isUser ? '#432a72' : '#f3eff9',
           color: isUser ? '#fff' : 'var(--mantine-color-dark-9)',
         }}
       >
-        <Text size="sm" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            p: ({ children }) => <Text size="sm" component="p" my={2}>{children}</Text>,
+            strong: ({ children }) => <Text component="strong" fw={700} inherit>{children}</Text>,
+            em: ({ children }) => <Text component="em" fs="italic" inherit>{children}</Text>,
+            code: ({ children }) => (
+              <Text
+                component="code"
+                size="xs"
+                inherit
+                style={{
+                  backgroundColor: isUser ? 'rgba(255,255,255,0.15)' : 'var(--mantine-color-gray-2)',
+                  padding: '1px 4px',
+                  borderRadius: 3,
+                }}
+              >
+                {children}
+              </Text>
+            ),
+            ul: ({ children }) => <ul style={{ margin: 0, paddingLeft: 20 }}>{children}</ul>,
+            ol: ({ children }) => <ol style={{ margin: 0, paddingLeft: 20 }}>{children}</ol>,
+            li: ({ children }) => <li style={{ marginBottom: 2 }}>{children}</li>,
+            a: ({ href, children }) => (
+              <Anchor href={href} target="_blank" rel="noopener noreferrer" c={isUser ? 'white' : 'blue'}>
+                {children}
+              </Anchor>
+            ),
+          }}
+        >
           {displayContent}
-        </Text>
+        </ReactMarkdown>
       </Paper>
     </div>
   );

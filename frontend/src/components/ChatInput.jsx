@@ -13,7 +13,7 @@ export default function ChatInput({ onSend, disabled }) {
   };
 
   return (
-    <Paper shadow="md" p="sm" withBorder>
+      <Paper shadow="md" p="sm" withBorder style={{ backgroundColor: '#432a72', borderColor: '#432a72' }}>
       <form
         onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
         style={{ display: 'flex', gap: '8px' }}
@@ -28,8 +28,8 @@ export default function ChatInput({ onSend, disabled }) {
         />
         <ActionIcon
           size="lg"
-          color="green"
           variant="filled"
+          style={{ backgroundColor: '#f2d40a', color: '#000', border: '2px solid #000' }}
           onClick={handleSubmit}
           disabled={disabled || !value.trim()}
           type="submit"
