@@ -115,7 +115,8 @@ Given the customer's requirements (in JSON format), output the exact tool call J
       "address": "15 Galle Road, Colombo 03"
     },
     "sender": {
-      "name": "Jane Doe"
+      "name": "Jane Doe",
+      "email": "jane@example.com"
     },
     "currency": "LKR"
   }
