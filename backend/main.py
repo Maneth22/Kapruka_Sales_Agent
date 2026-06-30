@@ -29,9 +29,9 @@ pipeline_queue = PipelineQueue(
 
 app = Flask(__name__, static_folder=None)
 app.config["SECRET_KEY"] = settings.jwt_secret
-CORS(app)
+CORS(app, origins=[])
 
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+socketio = SocketIO(app, cors_allowed_origins=[], async_mode="eventlet")
 
 app.register_blueprint(auth_bp)
 
@@ -55,8 +55,11 @@ def serve_frontend(path="index.html"):
     return send_from_directory(STATIC_DIR, "index.html")
 
 
+seed_admin()
+mcp_client.start()
+
 if __name__ == "__main__":
-    seed_admin()
-    mcp_client.start()
-    print(f"[MAIN] Starting server on {settings.host}:{settings.port}")
+    print(f"[MAIN] Starting development server on {settings.host}:{settings.port}")
+    print("[MAIN] WARNING: Use gunicorn for production:")
+    print("[MAIN]   gunicorn -k eventlet -w 1 -b 0.0.0.0:8080 backend.main:app")
     socketio.run(app, host=settings.host, port=settings.port, allow_unsafe_werkzeug=True)

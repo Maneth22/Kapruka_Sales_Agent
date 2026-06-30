@@ -6,9 +6,9 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      '/auth': { target: 'http://localhost:8000', changeOrigin: true },
-      '/socket.io': { target: 'http://localhost:8000', ws: true },
-      '/static': { target: 'http://localhost:8000', changeOrigin: true },
+      '/auth': { target: 'http://localhost:8080', changeOrigin: true },
+      '/socket.io': { target: 'http://localhost:8080', ws: true },
+      '/static': { target: 'http://localhost:8080', changeOrigin: true },
     },
   },
   build: {

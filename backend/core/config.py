@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -18,7 +19,7 @@ class Settings:
     admin_username: str = os.getenv("ADMIN_USERNAME", "admin")
     admin_password: str = os.getenv("ADMIN_PASSWORD", "")
     host: str = os.getenv("HOST", "0.0.0.0")
-    port: int = int(os.getenv("PORT", "8000"))
+    port: int = int(os.getenv("PORT", "8080"))
     pipeline_max_concurrency: int = int(os.getenv("PIPELINE_MAX_CONCURRENCY", "1"))
     pipeline_interval_ms: int = int(os.getenv("PIPELINE_INTERVAL_MS", "3000"))
     image_storage_dir: str = os.getenv(
@@ -29,3 +30,12 @@ class Settings:
 
 
 settings = Settings()
+
+if settings.jwt_secret == "change-me":
+    print("[CONFIG] WARNING: JWT_SECRET is still the default 'change-me' — tokens are trivially forgeable!")
+    print("[CONFIG] Set a strong random secret in your .env file before deploying to production.")
+
+if not settings.admin_password:
+    print("[CONFIG] WARNING: ADMIN_PASSWORD is empty — admin account will have no password!")
+    print("[CONFIG] Set a strong ADMIN_PASSWORD in your .env file before deploying to production.")
+    sys.stdout.flush()
