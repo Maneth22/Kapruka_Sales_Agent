@@ -35,9 +35,11 @@ def register_socket_handlers(socketio, pipeline_queue, mcp_client):
             print(f"[CHAT] Agent output [{status}] {label}: {content[:80]}...")
             emit("agent_output", {"label": label, "content": content, "status": status})
 
+        last_products = []
+
         def send_products(products_data: list[dict]):
-            print(f"[CHAT] Emitting {len(products_data)} products with images")
-            emit("products", {"products": products_data})
+            nonlocal last_products
+            last_products = products_data
 
         send_status("thinking", "Processing your request...")
 
@@ -50,4 +52,7 @@ def register_socket_handlers(socketio, pipeline_queue, mcp_client):
         add_message(user_id, "assistant", response_text)
         print(f"[CHAT] Sending response ({len(response_text)} chars): {response_text[:100]}...")
 
-        emit("message", {"role": "assistant", "content": response_text})
+        payload = {"role": "assistant", "content": response_text}
+        if last_products:
+            payload["products"] = last_products
+        emit("message", payload)

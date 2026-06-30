@@ -7,9 +7,7 @@ export function useChat(token) {
   const [isThinking, setIsThinking] = useState(false);
   const [statusDetail, setStatusDetail] = useState('');
   const [connected, setConnected] = useState(false);
-  const [productCards, setProductCards] = useState([]);
   const socketRef = useRef(null);
-  const msgIndexRef = useRef(-1);
 
   useEffect(() => {
     if (!token) return;
@@ -26,7 +24,6 @@ export function useChat(token) {
       setMessages((prev) => [...prev, data]);
       setIsThinking(false);
       setStatusDetail('');
-      msgIndexRef.current = data._index != null ? data._index : prev.length;
     });
 
     socket.on('status', (data) => {
@@ -48,12 +45,6 @@ export function useChat(token) {
       setAgentOutputs((prev) => [...prev, data]);
     });
 
-    socket.on('products', (data) => {
-      if (data?.products && data.products.length > 0) {
-        setProductCards((prev) => [...prev, data.products]);
-      }
-    });
-
     socketRef.current = socket;
 
     return () => { socket.disconnect(); };
@@ -64,9 +55,8 @@ export function useChat(token) {
     if (!socket || !socket.connected) return;
     setMessages((prev) => [...prev, { role: 'user', content }]);
     setAgentOutputs([]);
-    setProductCards([]);
     socket.emit('message', { content });
   }, []);
 
-  return { messages, agentOutputs, isThinking, statusDetail, connected, sendMessage, productCards };
+  return { messages, agentOutputs, isThinking, statusDetail, connected, sendMessage };
 }

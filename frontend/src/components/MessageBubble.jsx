@@ -1,7 +1,12 @@
 ﻿import { Container, Paper, Text } from '@mantine/core';
 
+function stripJsonBlocks(text) {
+  return text.replace(/```json[\s\S]*?```/g, '').trim();
+}
+
 export default function MessageBubble({ message }) {
   const isUser = message.role === 'user';
+  const displayContent = stripJsonBlocks(message.content);
 
   return (
     <div style={{
@@ -20,7 +25,7 @@ export default function MessageBubble({ message }) {
         }}
       >
         <Text size="sm" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-          {message.content}
+          {displayContent}
         </Text>
       </Paper>
     </div>

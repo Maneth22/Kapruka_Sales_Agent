@@ -76,6 +76,7 @@ def mock_gemini():
         patch("backend.agents.interaction_agent.genai.Client"),
         patch("backend.agents.request_handler_agent.genai.Client"),
         patch("backend.agents.validation_agent.genai.Client"),
+        patch("backend.agents.retry_agent.genai.Client"),
     ]
     for p in patchers:
         p.start()
@@ -89,7 +90,7 @@ def mock_gemini():
         )
         return client
 
-    for mod_name in ("interaction_agent", "request_handler_agent", "validation_agent"):
+    for mod_name in ("interaction_agent", "request_handler_agent", "validation_agent", "retry_agent"):
         patcher = patch(
             f"backend.agents.{mod_name}.genai.Client",
             side_effect=_make_mock_client,
@@ -302,19 +303,19 @@ class TestGeminiAgentPipeline:
         assert "Final Response" in labels
 
     def test_validation_retry_then_success(self, agent, mock_gemini):
-        """Validation fails on first attempt, retries with refined request, succeeds."""
+        """Validation fails on first attempt, RetryAgent corrects the request and succeeds."""
         responses = iter([
-            # 1. chat
+            # 1. InteractionAgent.chat()
             '```json\n{"intent": "search", "requirements": {"q": "cake"}}\n```',
-            # 2. build_request (attempt 1)
+            # 2. RequestHandlerAgent.build_request()
             '```json\n{"tool": "kapruka_search_products", "arguments": {"q": "cake"}}\n```',
-            # 3. validate (attempt 1 — fails, gives refined)
-            '```json\n{"satisfied": false, "feedback": "Try chocolate", "refined_request": {"q": "chocolate cake"}}\n```',
-            # 4. build_request (attempt 2)
-            '```json\n{"tool": "kapruka_search_products", "arguments": {"q": "chocolate cake"}}\n```',
-            # 5. validate (attempt 2 — passes)
-            '```json\n{"satisfied": true, "feedback": "Found chocolate cakes"}\n```',
-            # 6. present_results
+            # 3. ValidationAgent.validate() — fails
+            '```json\n{"satisfied": false, "feedback": "Try chocolate", "refined_request": null}\n```',
+            # 4. RetryAgent action 1 — retry with corrected params
+            '```json\n{"action": "retry", "tool": "kapruka_search_products", "arguments": {"q": "chocolate cake"}, "reasoning": "Broader search for chocolate cakes"}\n```',
+            # 5. RetryAgent action 2 — satisfied with new response
+            '```json\n{"action": "satisfied", "reasoning": "Found chocolate cakes this time"}\n```',
+            # 6. InteractionAgent.present_results()
             "Here are the chocolate cakes!",
         ])
 
@@ -323,7 +324,8 @@ class TestGeminiAgentPipeline:
 
         with patch("backend.agents.interaction_agent.genai.Client") as ci, \
              patch("backend.agents.request_handler_agent.genai.Client") as cr, \
-             patch("backend.agents.validation_agent.genai.Client") as cv:
+             patch("backend.agents.validation_agent.genai.Client") as cv, \
+             patch("backend.agents.retry_agent.genai.Client") as cre:
 
             ci.side_effect = lambda *a, **kw: MagicMock(
                 models=MagicMock(generate_content=next_response)
@@ -332,6 +334,9 @@ class TestGeminiAgentPipeline:
                 models=MagicMock(generate_content=next_response)
             )
             cv.side_effect = lambda *a, **kw: MagicMock(
+                models=MagicMock(generate_content=next_response)
+            )
+            cre.side_effect = lambda *a, **kw: MagicMock(
                 models=MagicMock(generate_content=next_response)
             )
 
@@ -344,21 +349,24 @@ class TestGeminiAgentPipeline:
         assert mcp.call_log[1][1] == {"q": "chocolate cake"}
 
     def test_all_retries_exhausted(self, agent, mock_gemini):
-        """Validation keeps failing, no refined request → explain_limitations."""
+        """Validation fails, RetryAgent gives up → explain_limitations."""
         responses = iter([
-            # 1. chat
+            # 1. InteractionAgent.chat()
             '```json\n{"requirements": {"q": "cake"}}\n```',
-            # 2. build_request (attempt 1)
+            # 2. RequestHandlerAgent.build_request()
             '```json\n{"tool": "kapruka_search_products", "arguments": {"q": "cake"}}\n```',
-            # 3. validate (attempt 1 — fails, no refined)
+            # 3. ValidationAgent.validate() — fails
             '```json\n{"satisfied": false, "feedback": "Nope", "refined_request": null}\n```',
-            # 4. explain_limitations → chat (internal call)
+            # 4. RetryAgent — gives up
+            '```json\n{"action": "give_up", "reasoning": "No results possible"}\n```',
+            # 5. InteractionAgent.explain_limitations()
             "Sorry, I couldn't find what you're looking for.",
         ])
 
         with patch("backend.agents.interaction_agent.genai.Client") as ci, \
              patch("backend.agents.request_handler_agent.genai.Client") as cr, \
-             patch("backend.agents.validation_agent.genai.Client") as cv:
+             patch("backend.agents.validation_agent.genai.Client") as cv, \
+             patch("backend.agents.retry_agent.genai.Client") as cre:
 
             def mk_static(text):
                 return lambda *a, **kw: _make_gemini_response(text)
@@ -370,6 +378,9 @@ class TestGeminiAgentPipeline:
                 models=MagicMock(generate_content=mk_static(next(responses)))
             )
             cv.side_effect = lambda *a, **kw: MagicMock(
+                models=MagicMock(generate_content=mk_static(next(responses)))
+            )
+            cre.side_effect = lambda *a, **kw: MagicMock(
                 models=MagicMock(generate_content=mk_static(next(responses)))
             )
 
@@ -404,17 +415,19 @@ class TestGeminiAgentPipeline:
         assert len(mcp.call_log) == 0
 
     def test_pipeline_with_mcp_error(self, agent, mock_gemini):
-        """MCP returns an error response (unknown tool) — validation handles it."""
+        """MCP returns an error response — RetryAgent gives up."""
         responses = iter([
             '```json\n{"requirements": {"q": "cake"}}\n```',
             '```json\n{"tool": "kapruka_bad_tool", "arguments": {}}\n```',
             '```json\n{"satisfied": false, "feedback": "Tool failed", "refined_request": null}\n```',
+            '```json\n{"action": "give_up", "reasoning": "Tool not found"}\n```',
             "The tool returned an error. Please try a different approach.",
         ])
 
         with patch("backend.agents.interaction_agent.genai.Client") as ci, \
              patch("backend.agents.request_handler_agent.genai.Client") as cr, \
-             patch("backend.agents.validation_agent.genai.Client") as cv:
+             patch("backend.agents.validation_agent.genai.Client") as cv, \
+             patch("backend.agents.retry_agent.genai.Client") as cre:
 
             ci.side_effect = lambda *a, **kw: MagicMock(
                 models=MagicMock(generate_content=lambda *a, **kw: _make_gemini_response(next(responses)))
@@ -423,6 +436,9 @@ class TestGeminiAgentPipeline:
                 models=MagicMock(generate_content=lambda *a, **kw: _make_gemini_response(next(responses)))
             )
             cv.side_effect = lambda *a, **kw: MagicMock(
+                models=MagicMock(generate_content=lambda *a, **kw: _make_gemini_response(next(responses)))
+            )
+            cre.side_effect = lambda *a, **kw: MagicMock(
                 models=MagicMock(generate_content=lambda *a, **kw: _make_gemini_response(next(responses)))
             )
 
@@ -438,12 +454,14 @@ class TestGeminiAgentPipeline:
             '```json\n{"requirements": {"q": "cake"}}\n```',
             '```json\n{"tool": "kapruka_search_products", "arguments": {"q": "cake"}}\n```',
             '```json\n{"satisfied": false, "feedback": "No", "refined_request": null}\n```',
+            '```json\n{"action": "give_up", "reasoning": "Could not fix"}\n```',
             "I'm unable to find what you're looking for.",
         ])
 
         with patch("backend.agents.interaction_agent.genai.Client") as ci, \
              patch("backend.agents.request_handler_agent.genai.Client") as cr, \
-             patch("backend.agents.validation_agent.genai.Client") as cv:
+             patch("backend.agents.validation_agent.genai.Client") as cv, \
+             patch("backend.agents.retry_agent.genai.Client") as cre:
 
             ci.side_effect = lambda *a, **kw: MagicMock(
                 models=MagicMock(generate_content=lambda *a, **kw: _make_gemini_response(next(responses)))
@@ -452,6 +470,9 @@ class TestGeminiAgentPipeline:
                 models=MagicMock(generate_content=lambda *a, **kw: _make_gemini_response(next(responses)))
             )
             cv.side_effect = lambda *a, **kw: MagicMock(
+                models=MagicMock(generate_content=lambda *a, **kw: _make_gemini_response(next(responses)))
+            )
+            cre.side_effect = lambda *a, **kw: MagicMock(
                 models=MagicMock(generate_content=lambda *a, **kw: _make_gemini_response(next(responses)))
             )
 

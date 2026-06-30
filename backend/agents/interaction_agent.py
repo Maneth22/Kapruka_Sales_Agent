@@ -14,6 +14,10 @@ def _load_prompt() -> str:
     return path.read_text(encoding="utf-8")
 
 
+def _strip_json_blocks(text: str) -> str:
+    return re.sub(r"```json\s*.*?\s*```", "", text, flags=re.DOTALL).strip()
+
+
 class InteractionAgent:
     def __init__(self, queue: GeminiRequestQueue):
         self._model = settings.gemini_model
@@ -56,9 +60,9 @@ class InteractionAgent:
     def present_results(self, results: str, history: list[dict]) -> str:
         print(f"[INTERACTION] present_results() - results:{len(results)} chars")
         msg = f"Here are the results from the system. Present them to the customer in a friendly way:\n\n{results}"
-        return self.chat(msg, history)
+        return _strip_json_blocks(self.chat(msg, history))
 
     def explain_limitations(self, feedback: str, history: list[dict]) -> str:
         print(f"[INTERACTION] explain_limitations() - feedback:{feedback[:80]}...")
         msg = f"The system was unable to fulfill the request. Explain this politely to the customer and offer alternatives:\n\n{feedback}"
-        return self.chat(msg, history)
+        return _strip_json_blocks(self.chat(msg, history))

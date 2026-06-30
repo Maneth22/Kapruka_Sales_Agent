@@ -7,14 +7,21 @@ export default function ProductCard({ name, price, currency, in_stock, image_url
 
   return (
     <>
-      <Card shadow="sm" radius="md" withBorder padding="md" style={{ height: '100%' }}>
+      <Card
+        shadow="sm"
+        radius="md"
+        withBorder
+        padding="sm"
+        className="product-card"
+        style={{ height: '100%' }}
+      >
         <Card.Section
           style={{ cursor: 'pointer', overflow: 'hidden' }}
           onClick={() => setOpened(true)}
         >
           <Image
             src={imgError ? null : image_url}
-            height={160}
+            height={120}
             fallbackSrc="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27400%27 height=%27300%27 fill=%27%23dee2e6%27%3E%3Crect width=%27400%27 height=%27300%27/%3E%3Ctext x=%27200%27 y=%27150%27 text-anchor=%27middle%27 fill=%27%23868e96%27 font-size=%2716%27 font-family=%27sans-serif%27%3ENo Image%3C/text%3E%3C/svg%3E"
             onError={() => setImgError(true)}
             style={{ objectFit: 'cover' }}
@@ -22,13 +29,13 @@ export default function ProductCard({ name, price, currency, in_stock, image_url
           />
         </Card.Section>
 
-        <Stack gap="xs" mt="sm">
-          <Group justify="space-between" wrap="nowrap" gap="xs">
-            <Text fw={600} size="sm" lineClamp={2} style={{ flex: 1 }}>
+        <Stack gap={4} mt="xs">
+          <Group justify="space-between" wrap="nowrap" gap={4}>
+            <Text fw={600} size="xs" lineClamp={2} style={{ flex: 1 }}>
               {name}
             </Text>
             <Badge
-              size="sm"
+              size="xs"
               color={in_stock ? 'green' : 'red'}
               variant="light"
               style={{ flexShrink: 0 }}
@@ -43,7 +50,7 @@ export default function ProductCard({ name, price, currency, in_stock, image_url
             </Badge>
           )}
 
-          <Text size="lg" fw={700} c="green">
+          <Text size="sm" fw={700} c="green">
             {price != null ? `${price} ${currency || 'LKR'}` : ''}
           </Text>
 
@@ -54,7 +61,7 @@ export default function ProductCard({ name, price, currency, in_stock, image_url
           )}
 
           {description && (
-            <Text size="xs" c="dimmed" lineClamp={2}>
+            <Text size="xs" c="dimmed" lineClamp={1}>
               {description}
             </Text>
           )}
@@ -64,7 +71,7 @@ export default function ProductCard({ name, price, currency, in_stock, image_url
               href={product_url}
               target="_blank"
               rel="noopener noreferrer"
-              size="sm"
+              size="xs"
               style={{ display: 'inline-block' }}
             >
               View Product &rarr;
@@ -72,6 +79,21 @@ export default function ProductCard({ name, price, currency, in_stock, image_url
           )}
         </Stack>
       </Card>
+
+      <style>{`
+        .product-card {
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .product-card:hover {
+          transform: scale(1.03);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        }
+        @media (max-width: 576px) {
+          .product-card:hover {
+            transform: none;
+          }
+        }
+      `}</style>
 
       <Modal
         opened={opened}

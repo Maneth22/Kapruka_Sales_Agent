@@ -98,7 +98,6 @@ def get_tools() -> list[types.Tool]:
                             properties={
                                 "name": types.Schema(type=types.Type.STRING, description="Recipient name"),
                                 "phone": types.Schema(type=types.Type.STRING, description="Recipient phone number"),
-                                "address": types.Schema(type=types.Type.STRING, description="Delivery address"),
                             },
                             required=["name", "phone"],
                         ),
@@ -109,7 +108,6 @@ def get_tools() -> list[types.Tool]:
                                 "city": types.Schema(type=types.Type.STRING, description="Delivery city"),
                                 "date": types.Schema(type=types.Type.STRING, description="Delivery date"),
                                 "address": types.Schema(type=types.Type.STRING, description="Delivery address"),
-                                "time_slot": types.Schema(type=types.Type.STRING, description="Preferred time slot"),
                             },
                             required=["city", "date", "address"],
                         ),

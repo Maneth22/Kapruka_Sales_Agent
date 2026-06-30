@@ -108,7 +108,6 @@ Given the customer's requirements (in JSON format), output the exact tool call J
     "recipient": {
       "name": "John Doe",
       "phone": "+94123456789",
-      "city": "Colombo 03"
     },
     "delivery": {
       "city": "Colombo 03",
