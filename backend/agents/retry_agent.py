@@ -1,5 +1,6 @@
 import json
 import re
+import time
 from pathlib import Path
 
 from google import genai
@@ -130,6 +131,10 @@ class RetryAgent:
                 })
                 if send_agent_output:
                     send_agent_output(f"Retry Attempt {attempt}", f"Connection error: {e}", "failure")
+                if attempt < self.MAX_RETRIES:
+                    delay = settings.retry_delay_ms / 1000.0
+                    print(f"[RETRY_AGENT] Waiting {delay:.1f}s before next retry...")
+                    time.sleep(delay)
                 continue
 
             last_tool_call = {"tool": tool_name, "arguments": tool_args}
@@ -146,6 +151,11 @@ class RetryAgent:
 
             if send_agent_output:
                 send_agent_output(f"Retry Attempt {attempt}", f"Response ({len(new_response)} chars):\n{new_response[:300]}", "info")
+
+            if attempt < self.MAX_RETRIES:
+                delay = settings.retry_delay_ms / 1000.0
+                print(f"[RETRY_AGENT] Waiting {delay:.1f}s before next retry...")
+                time.sleep(delay)
 
         print("[RETRY_AGENT] Max internal retries exhausted")
         if any_connection_error:

@@ -30,7 +30,7 @@ export default function ProductCard({ name, price, currency, in_stock, image_url
         </Card.Section>
 
         <Stack gap={4} mt="xs">
-          <Group justify="space-between" wrap="nowrap" gap={4}>
+          <Group justify="space-between" wrap="wrap" gap={4}>
             <Text fw={600} size="xs" lineClamp={2} style={{ flex: 1 }}>
               {name}
             </Text>
@@ -72,7 +72,7 @@ export default function ProductCard({ name, price, currency, in_stock, image_url
               target="_blank"
               rel="noopener noreferrer"
               size="xs"
-              style={{ color: '#432a72', display: 'inline-block' }}
+              style={{ color: '#432a72', display: 'inline-flex', alignItems: 'center', minHeight: 44 }}
             >
               View Product &rarr;
             </Anchor>
@@ -101,6 +101,7 @@ export default function ProductCard({ name, price, currency, in_stock, image_url
         title={name}
         size="lg"
         centered
+        fullScreen={{ base: true, sm: false }}
       >
         <Image
           src={imgError ? null : image_url}

@@ -44,6 +44,7 @@ export default function Login() {
               value={username}
               onChange={(e) => setUsername(e.currentTarget.value)}
               required
+              size="lg"
             />
             <PasswordInput
               label="Password"
@@ -51,6 +52,7 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.currentTarget.value)}
               required
+              size="lg"
             />
             {error && <Alert color="red" variant="light">{error}</Alert>}
             <Button type="submit" fullWidth loading={loading}
@@ -62,7 +64,7 @@ export default function Login() {
 
         <Text ta="center" size="sm" mt="md">
           {isRegister ? 'Already have an account? ' : "Don't have an account? "}
-          <Button variant="subtle" size="compact-sm" onClick={() => setIsRegister(!isRegister)}>
+          <Button variant="subtle" size="sm" onClick={() => setIsRegister(!isRegister)}>
             {isRegister ? 'Sign In' : 'Register'}
           </Button>
         </Text>

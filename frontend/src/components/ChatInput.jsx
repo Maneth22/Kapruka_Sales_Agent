@@ -27,14 +27,14 @@ export default function ChatInput({ onSend, disabled }) {
           size="md"
         />
         <ActionIcon
-          size="lg"
+          size="xl"
           variant="filled"
-          style={{ backgroundColor: '#f2d40a', color: '#000', border: '2px solid #000' }}
+          style={{ backgroundColor: '#f2d40a', color: '#000', border: '2px solid #000', minWidth: 44, minHeight: 44 }}
           onClick={handleSubmit}
           disabled={disabled || !value.trim()}
           type="submit"
         >
-          <IconSend size={20} />
+          <IconSend size={22} />
         </ActionIcon>
       </form>
     </Paper>
