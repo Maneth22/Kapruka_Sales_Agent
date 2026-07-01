@@ -2,28 +2,36 @@ import time
 from datetime import datetime, timezone
 
 from backend.core.config import settings
+from backend.core.database import get_connection
 
 
-_chat_store: dict[str, list[dict]] = {}
 _last_activity: dict[str, float] = {}
 
 
 def get_history(user_id: str) -> list[dict]:
-    return _chat_store.get(user_id, [])
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT role, content, timestamp FROM messages WHERE user_id = ? ORDER BY id",
+        (user_id,),
+    ).fetchall()
+    return [dict(r) for r in rows]
 
 
 def add_message(user_id: str, role: str, content: str):
-    msg = {
-        "role": role,
-        "content": content,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
-    _chat_store.setdefault(user_id, []).append(msg)
-    return msg
+    conn = get_connection()
+    ts = datetime.now(timezone.utc).isoformat()
+    conn.execute(
+        "INSERT INTO messages (user_id, role, content, timestamp) VALUES (?, ?, ?, ?)",
+        (user_id, role, content, ts),
+    )
+    conn.commit()
+    return {"role": role, "content": content, "timestamp": ts}
 
 
 def clear_history(user_id: str):
-    _chat_store.pop(user_id, None)
+    conn = get_connection()
+    conn.execute("DELETE FROM messages WHERE user_id = ?", (user_id,))
+    conn.commit()
 
 
 def update_activity(user_id: str):

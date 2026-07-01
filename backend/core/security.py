@@ -4,6 +4,7 @@ import bcrypt
 from jose import JWTError, jwt
 
 from backend.core.config import settings
+from backend.core.database import get_connection
 
 
 def _hash_password(password: str) -> str:
@@ -14,29 +15,36 @@ def _verify_password(password: str, password_hash: str) -> bool:
     return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
 
 
-_users_store: dict[str, dict] = {}
-
-
 def seed_admin():
-    _users_store[settings.admin_username] = {
-        "username": settings.admin_username,
-        "password_hash": _hash_password(settings.admin_password),
-    }
+    conn = get_connection()
+    conn.execute(
+        "INSERT OR REPLACE INTO users (username, password_hash) VALUES (?, ?)",
+        (settings.admin_username, _hash_password(settings.admin_password)),
+    )
+    conn.commit()
 
 
 def register_user(username: str, password: str) -> dict | None:
-    if username in _users_store:
+    conn = get_connection()
+    existing = conn.execute(
+        "SELECT 1 FROM users WHERE username = ?", (username,)
+    ).fetchone()
+    if existing:
         return None
-    _users_store[username] = {
-        "username": username,
-        "password_hash": _hash_password(password),
-    }
+    conn.execute(
+        "INSERT INTO users (username, password_hash) VALUES (?, ?)",
+        (username, _hash_password(password)),
+    )
+    conn.commit()
     return {"username": username}
 
 
 def authenticate_user(username: str, password: str) -> dict | None:
-    user = _users_store.get(username)
-    if not user or not _verify_password(password, user["password_hash"]):
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT password_hash FROM users WHERE username = ?", (username,)
+    ).fetchone()
+    if not row or not _verify_password(password, row["password_hash"]):
         return None
     return {"username": username}
 

@@ -29,6 +29,10 @@ class Settings:
     image_scrape_timeout: int = int(os.getenv("IMAGE_SCRAPE_TIMEOUT", "15"))
     session_timeout_minutes: int = int(os.getenv("SESSION_TIMEOUT_MINUTES", "15"))
     retry_delay_ms: int = int(os.getenv("RETRY_DELAY_MS", "1500"))
+    database_path: str = os.getenv(
+        "DATABASE_PATH",
+        str(_project_root / "backend" / "data" / "chat.db"),
+    )
 
 
 settings = Settings()

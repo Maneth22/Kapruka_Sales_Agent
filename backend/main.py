@@ -8,6 +8,7 @@ from flask_socketio import SocketIO
 from flask_cors import CORS
 
 from backend.core.config import settings
+from backend.core.database import init_db
 from backend.core.security import seed_admin
 from backend.core.gemini_queue import GeminiRequestQueue
 from backend.core.pipeline_queue import PipelineQueue
@@ -55,6 +56,7 @@ def serve_frontend(path="index.html"):
     return send_from_directory(STATIC_DIR, "index.html")
 
 
+init_db(settings.database_path)
 seed_admin()
 mcp_client.start()
 

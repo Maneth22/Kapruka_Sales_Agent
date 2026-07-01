@@ -1,48 +1,72 @@
 import json
 from datetime import datetime, timezone
 
-
-_product_store: dict[str, list[dict]] = {}
+from backend.core.database import get_connection
 
 
 def add_search_results(user_id: str, tool_call: dict, raw_response: str, products: list[dict], image_results: list[dict] | None = None):
-    entry = {
-        "tool_call": tool_call,
-        "raw_response": raw_response,
-        "products": products,
-        "image_results": image_results or [],
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
-    _product_store.setdefault(user_id, []).append(entry)
-    return entry
+    conn = get_connection()
+    ts = datetime.now(timezone.utc).isoformat()
+    conn.execute(
+        "INSERT INTO product_results (user_id, tool_call, raw_response, products, image_results, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
+        (user_id, json.dumps(tool_call), raw_response, json.dumps(products), json.dumps(image_results) if image_results else None, ts),
+    )
+    conn.commit()
 
 
 def get_search_history(user_id: str) -> list[dict]:
-    return _product_store.get(user_id, [])
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT tool_call, raw_response, products, image_results, timestamp FROM product_results WHERE user_id = ? ORDER BY id",
+        (user_id,),
+    ).fetchall()
+    result = []
+    for r in rows:
+        entry = {
+            "tool_call": json.loads(r["tool_call"]),
+            "raw_response": r["raw_response"],
+            "products": json.loads(r["products"]),
+            "image_results": json.loads(r["image_results"]) if r["image_results"] else [],
+            "timestamp": r["timestamp"],
+        }
+        result.append(entry)
+    return result
 
 
 def get_latest_products(user_id: str) -> list[dict]:
-    history = _product_store.get(user_id, [])
-    if not history:
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT products FROM product_results WHERE user_id = ? ORDER BY id DESC LIMIT 1",
+        (user_id,),
+    ).fetchone()
+    if row is None:
         return []
-    return history[-1].get("products", [])
+    return json.loads(row["products"])
 
 
 def get_latest_image_results(user_id: str) -> list[dict]:
-    history = _product_store.get(user_id, [])
-    if not history:
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT image_results FROM product_results WHERE user_id = ? ORDER BY id DESC LIMIT 1",
+        (user_id,),
+    ).fetchone()
+    if row is None or not row["image_results"]:
         return []
-    return history[-1].get("image_results", [])
+    return json.loads(row["image_results"])
 
 
 def format_products_context(user_id: str) -> str:
-    history = _product_store.get(user_id, [])
-    if not history:
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT products FROM product_results WHERE user_id = ? ORDER BY id",
+        (user_id,),
+    ).fetchall()
+    if not rows:
         return ""
 
     parts = []
-    for i, entry in enumerate(history):
-        products = entry.get("products", [])
+    for i, r in enumerate(rows):
+        products = json.loads(r["products"])
         if not products:
             continue
         lines = []
@@ -59,4 +83,6 @@ def format_products_context(user_id: str) -> str:
 
 
 def clear_search_history(user_id: str):
-    _product_store.pop(user_id, None)
+    conn = get_connection()
+    conn.execute("DELETE FROM product_results WHERE user_id = ?", (user_id,))
+    conn.commit()
